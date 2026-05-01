@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Disease Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div class="hero-copy">
+                <p class="eyebrow">Crop Health Intelligence</p>
+                <h1>Crop Disease Prediction System</h1>
+                <p class="hero-subtitle">A compact, real-time dashboard for disease prediction, model insight, and sensitivity analysis.</p>
+            </div>
+            <div class="hero-api-compact card-surface" title="IoT backend URL and live sync">
+                <div class="hero-api-row-compact">
+                    <input
+                        type="url"
+                        id="apiBaseUrl"
+                        name="apiBaseUrl"
+                        placeholder="http://localhost:3001"
+                        autocomplete="off"
+                        aria-label="IoT backend URL"
+                    >
+                    <button type="button" class="btn-ghost" id="saveApiUrlBtn" title="Save URL">Save</button>
+                    <button type="button" class="btn-ghost" id="syncNowBtn" title="Sync now">⟳</button>
+                </div>
+                <div class="hero-api-status-compact">
+                    <span id="liveSyncStatus">Idle</span>
+                    <span id="liveSyncUpdated" class="muted">No data yet</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard">
+            <aside class="input-panel card-surface">
+                <div class="panel-header">
+                    <h2>Input Parameters</h2>
+                    <p>Dense form layout optimized to stay within a single screen.</p>
+                </div>
+
+                <form id="predictionForm" class="input-grid">
+                    <div class="form-group form-span-3">
+                        <label for="crop">Crop Type</label>
+                        <select id="crop" name="crop" required>
+                            {% for crop in crops %}
+                            <option value="{{ crop }}">{{ crop }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-section-title form-span-3">Soil Properties</div>
+                    <div class="form-group">
+                        <label for="nitrogen">Nitrogen (mg/kg)</label>
+                        <input type="number" id="nitrogen" name="nitrogen" step="0.01" value="33.71" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phosphorus">Phosphorus (mg/kg)</label>
+                        <input type="number" id="phosphorus" name="phosphorus" step="0.01" value="42.91" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="potassium">Potassium (mg/kg)</label>
+                        <input type="number" id="potassium" name="potassium" step="0.01" value="71.63" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ph_value">pH Value</label>
+                        <input type="number" id="ph_value" name="ph_value" step="0.01" value="5.64" required>
+                    </div>
+
+                    <div class="form-section-title form-span-3">Temperature & Humidity</div>
+                    <div class="form-group">
+                        <label for="soil_temp">Soil Temperature (°C)</label>
+                        <input type="number" id="soil_temp" name="soil_temp" step="0.01" value="12.61" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="humidity">Humidity (%)</label>
+                        <input type="number" id="humidity" name="humidity" step="0.01" value="68.97" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="weather_temp">Weather Temp (°F)</label>
+                        <input type="number" id="weather_temp" name="weather_temp" step="0.01" value="82.70" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="weather_humidity">Weather Humidity (%)</label>
+                        <input type="number" id="weather_humidity" name="weather_humidity" step="0.01" value="89.90" required>
+                    </div>
+
+                    <div class="form-section-title form-span-3">Weather & Rainfall</div>
+                    <div class="form-group">
+                        <label for="rainfall">Rainfall (mm)</label>
+                        <input type="number" id="rainfall" name="rainfall" step="0.01" value="183.16" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cloud_cover">Cloud Cover (%)</label>
+                        <input type="number" id="cloud_cover" name="cloud_cover" step="0.01" value="98.60" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="wind_speed">Wind Speed (km/h)</label>
+                        <input type="number" id="wind_speed" name="wind_speed" step="0.01" value="9.60" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rolling_rainfall">Rolling Rainfall (mm)</label>
+                        <input type="number" id="rolling_rainfall" name="rolling_rainfall" step="0.01" value="89.89" required>
+                    </div>
+
+                    <div class="form-section-title form-span-3">Derived Metrics</div>
+                    <div class="form-group">
+                        <label for="temp_variance">Temperature Variance</label>
+                        <input type="number" id="temp_variance" name="temp_variance" step="0.01" value="9.60" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="favorability">Weather Favorability</label>
+                        <input type="number" id="favorability" name="favorability" step="0.0001" value="0.1746" required>
+                    </div>
+                    <div class="form-group form-span-3 action-group">
+                        <button type="submit" class="btn-primary">Predict Disease</button>
+                    </div>
+                </form>
+            </aside>
+
+            <section class="workspace">
+                <div class="summary-grid">
+                    <section class="result-card card-surface" id="resultCard" style="display: none;">
+                        <div class="card-heading">
+                            <h2>Prediction Result</h2>
+                            <p>Highest-confidence disease classification.</p>
+                        </div>
+                        <div class="metrics-grid">
+                            <div class="metric">
+                                <div class="metric-label">Predicted Disease</div>
+                                <div class="metric-value" id="predictedDisease">-</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Confidence</div>
+                                <div class="metric-value" id="confidence">-</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card-surface compact-card" id="top3Card" style="display: none;">
+                        <div class="card-heading">
+                            <h2>Top 3 Predictions</h2>
+                            <p>Shortlist of the closest disease classes.</p>
+                        </div>
+                        <div id="top3List" class="top3-list"></div>
+                    </section>
+                </div>
+
+                <section class="insights-panel card-surface">
+                    <div class="section-toolbar">
+                        <div>
+                            <h2>Model Insights</h2>
+                            <p>Compact charts tuned for one-screen viewing.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" id="sensitivityBtn">Analyze Top Features</button>
+                    </div>
+
+                    <div class="charts-grid">
+                        <section class="card chart-card">
+                            <h3>Class Probability Distribution</h3>
+                            <div id="probChart" class="chart"></div>
+                        </section>
+
+                        <section class="card chart-card">
+                            <h3>Global Feature Importance</h3>
+                            <div id="importanceChart" class="chart"></div>
+                        </section>
+
+                        <section class="card chart-card">
+                            <h3>Local Contributions</h3>
+                            <div id="contributionsChart" class="chart"></div>
+                        </section>
+                    </div>
+                </section>
+
+                <div id="loadingSpinner" class="spinner" style="display: none;"></div>
+                <div id="errorMsg" class="error-message" style="display: none;"></div>
+            </section>
+        </main>
+    </div>
+
+    <section class="sensitivity-modal" id="sensitivityCard" style="display: none;">
+        <div class="sensitivity-modal-backdrop" id="sensitivityCloseBackdrop"></div>
+        <div class="sensitivity-modal-panel card-surface">
+            <div class="section-toolbar">
+                <div>
+                    <h2>Feature Sensitivity Analysis</h2>
+                    <p>Top features expanded into a modal so the main dashboard stays compact.</p>
+                </div>
+                <button type="button" class="btn-secondary" id="sensitivityCloseBtn">Close</button>
+            </div>
+            <div id="sensitivityCharts" class="sensitivity-charts"></div>
+        </div>
+    </section>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
